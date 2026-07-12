@@ -80,6 +80,7 @@ class Trip(db.Model):
     driver_id = db.Column(db.Integer, db.ForeignKey("driver.id"))
     fuel_consumed = db.Column(db.Float, default=0)
     final_odometer = db.Column(db.Float, default=0)
+    revenue = db.Column(db.Float, default=0)
 
 
 class MaintenanceLog(db.Model):
@@ -472,7 +473,7 @@ def trips():
         driver = Driver.query.get(int(request.form["driver_id"]))
         errors = validate_trip_assignment(vehicle, driver, float(request.form["cargo_weight"]))
         if errors:
-            return render_template("trips.html", vehicles=Vehicle.query.all(), drivers=Driver.query.all(), trips=Trip.query.all(), errors=errors)
+            return render_template("trips.html", vehicles=Vehicle.query.filter_by(status="Available").all(), drivers=Driver.query.filter_by(status="Available").all(), trips=Trip.query.all(), errors=errors)
         trip = Trip(
             source=request.form["source"],
             destination=request.form["destination"],
@@ -485,7 +486,7 @@ def trips():
         db.session.add(trip)
         db.session.commit()
         return redirect(url_for("trips"))
-    return render_template("trips.html", vehicles=Vehicle.query.all(), drivers=Driver.query.all(), trips=Trip.query.all(), errors=[])
+    return render_template("trips.html", vehicles=Vehicle.query.filter_by(status="Available").all(), drivers=Driver.query.filter_by(status="Available").all(), trips=Trip.query.all(), errors=[])
 
 
 @app.route("/trips/<int:trip_id>/dispatch", methods=["POST"])
@@ -580,12 +581,14 @@ def reports():
         fuel_logs = FuelLog.query.filter_by(vehicle_id=vehicle.id).all()
         expenses = Expense.query.filter_by(vehicle_id=vehicle.id).all()
         maintenance_logs = MaintenanceLog.query.filter_by(vehicle_id=vehicle.id).all()
+        completed_trips = Trip.query.filter_by(vehicle_id=vehicle.id, state="Completed").all()
         fuel_total = sum(log.cost for log in fuel_logs)
         maintenance_total = sum(log.cost for log in maintenance_logs)
+        total_revenue = sum(trip.revenue for trip in completed_trips)
         total_cost = fuel_total + maintenance_total + sum(exp.amount for exp in expenses)
         distance = vehicle.odometer
         fuel_efficiency = round(distance / sum(log.liters for log in fuel_logs), 2) if sum(log.liters for log in fuel_logs) else 0
-        roi = round((0 - (maintenance_total + fuel_total)) / vehicle.acquisition_cost, 2) if vehicle.acquisition_cost else 0
+        roi = round((total_revenue - (maintenance_total + fuel_total)) / vehicle.acquisition_cost, 2) if vehicle.acquisition_cost else 0
         report_rows.append({
             "vehicle": vehicle,
             "fuel_efficiency": fuel_efficiency,
@@ -634,8 +637,20 @@ def export_csv():
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(["Vehicle", "Fuel Efficiency", "Operational Cost", "ROI"])
-    for row in Vehicle.query.all():
-        writer.writerow([row.name, 0, 0, 0])
+    vehicles = Vehicle.query.all()
+    for vehicle in vehicles:
+        fuel_logs = FuelLog.query.filter_by(vehicle_id=vehicle.id).all()
+        expenses = Expense.query.filter_by(vehicle_id=vehicle.id).all()
+        maintenance_logs = MaintenanceLog.query.filter_by(vehicle_id=vehicle.id).all()
+        completed_trips = Trip.query.filter_by(vehicle_id=vehicle.id, state="Completed").all()
+        fuel_total = sum(log.cost for log in fuel_logs)
+        maintenance_total = sum(log.cost for log in maintenance_logs)
+        total_revenue = sum(trip.revenue for trip in completed_trips)
+        total_cost = fuel_total + maintenance_total + sum(exp.amount for exp in expenses)
+        distance = vehicle.odometer
+        fuel_efficiency = round(distance / sum(log.liters for log in fuel_logs), 2) if sum(log.liters for log in fuel_logs) else 0
+        roi = round((total_revenue - (maintenance_total + fuel_total)) / vehicle.acquisition_cost, 2) if vehicle.acquisition_cost else 0
+        writer.writerow([vehicle.name, fuel_efficiency, total_cost, roi])
     csv_data = output.getvalue()
     return send_file(
         io.BytesIO(csv_data.encode("utf-8")),

@@ -14,22 +14,22 @@ def validate_trip_assignment(vehicle, driver, cargo_weight):
         errors.append("Driver is required")
         return errors
 
-    if vehicle.get("status") in {"In Shop", "Retired"}:
+    if vehicle.status in {"In Shop", "Retired"}:
         errors.append("Vehicle is unavailable for dispatch")
 
-    if vehicle.get("max_load_capacity", 0) < cargo_weight:
+    if vehicle.max_load_capacity < cargo_weight:
         errors.append("Cargo weight exceeds vehicle capacity")
 
-    if driver.get("status") == "Suspended":
+    if driver.status == "Suspended":
         errors.append("Driver is not eligible for dispatch")
 
-    if driver.get("license_expiry") and driver.get("license_expiry") < date.today():
+    if driver.license_expiry and driver.license_expiry < date.today():
         errors.append("Driver license is expired")
 
-    if vehicle.get("status") == "On Trip":
+    if vehicle.status == "On Trip":
         errors.append("Vehicle is already on a trip")
 
-    if driver.get("status") == "On Trip":
+    if driver.status == "On Trip":
         errors.append("Driver is already on a trip")
 
     return errors

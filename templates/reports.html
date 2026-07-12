@@ -2,66 +2,149 @@
 <html>
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>TransitOps Reports</title>
   <style>
-    :root { --bg:#07111f; --panel:rgba(15,23,42,0.88); --panel-soft:rgba(30,41,59,0.72); --text:#f8fafc; --muted:#94a3b8; --accent:#38bdf8; --accent-2:#818cf8; --border:rgba(148,163,184,0.16); }
+    :root { --bg:#020617; --panel:rgba(15,23,42,0.86); --panel-soft:rgba(30,41,59,0.72); --text:#f8fafc; --muted:#94a3b8; --accent:#38bdf8; --accent-2:#818cf8; --border:rgba(148,163,184,0.16); --surface:rgba(255,255,255,0.04); --success:#10b981; --danger:#ef4444; --warn:#f59e0b; }
+    body.light { --bg:#f8fafc; --panel:#ffffff; --panel-soft:#f8fbff; --text:#0f172a; --muted:#64748b; --accent:#2563eb; --accent-2:#38bdf8; --border:rgba(15,23,42,0.08); --surface:rgba(15,23,42,0.03); }
     * { box-sizing: border-box; }
-    body { font-family: Inter, Arial, sans-serif; margin: 0; min-height:100vh; background: radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 24%), linear-gradient(135deg, #020617 0%, #07111f 45%, #111c31 100%); color: var(--text); }
-    nav { background: rgba(2,6,23,0.85); backdrop-filter: blur(16px); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom:1px solid rgba(255,255,255,0.08); }
-    nav a { color: white; margin-left: 1rem; text-decoration: none; opacity: 0.9; }
-    .container { padding: 2rem; max-width: 1440px; margin: 0 auto; }
-    .hero { display:flex; justify-content:space-between; align-items:end; gap:1rem; margin-bottom:1.2rem; }
-    .hero h2 { margin:0 0 0.25rem; font-size:2rem; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Arial, sans-serif; margin:0; min-height:100vh; background:radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 24%), linear-gradient(135deg, #020617 0%, #07111f 45%, #111c31 100%); color:var(--text); transition: all .3s ease; }
+    body.light { background:radial-gradient(circle at top left, rgba(56,189,248,0.12), transparent 24%), linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%); }
+    .app-shell { display:flex; min-height:100vh; }
+    .sidebar { width:250px; background:linear-gradient(180deg, #0f172a, #111c31); color:white; padding:1.1rem 1rem; display:flex; flex-direction:column; gap:0.6rem; box-shadow: 12px 0 36px rgba(2,6,23,0.18); }
+    body.light .sidebar { background:linear-gradient(180deg, #0f172a, #1d4ed8); }
+    .sidebar strong { font-size:1.05rem; margin-bottom:0.5rem; display:block; }
+    .sidebar a { color:white; text-decoration:none; padding:0.8rem 0.9rem; border-radius:12px; display:flex; align-items:center; gap:0.75rem; opacity:0.9; transition: all 0.2s ease; }
+    .sidebar a:hover { background:rgba(255,255,255,0.14); transform: translateX(3px); opacity:1; }
+    .sidebar a.active { background:linear-gradient(90deg, rgba(56,189,248,0.24), rgba(129,140,248,0.2)); opacity:1; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+    .main-panel { flex:1; display:flex; flex-direction:column; }
+    .topbar { background:rgba(2,6,23,0.7); color:white; padding:1rem 1.2rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px); }
+    body.light .topbar { background:rgba(255,255,255,0.76); color:#0f172a; border-bottom:1px solid rgba(15,23,42,0.08); }
+    .container { padding:1.4rem; max-width:1400px; width:100%; margin:0 auto; }
+    .hero { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1.2rem; flex-wrap:wrap; }
+    .hero h2 { margin:0 0 0.25rem; font-size:1.9rem; font-weight:700; }
     .hero p { margin:0; color:var(--muted); }
-    .pill { display:inline-flex; gap:0.35rem; align-items:center; padding:0.45rem 0.7rem; border-radius:999px; background:rgba(56,189,248,0.15); color:#7dd3fc; font-size:0.85rem; }
-    .card { background: linear-gradient(135deg, var(--panel), var(--panel-soft)); padding: 1.15rem 1.25rem; border-radius: 20px; box-shadow: 0 20px 50px rgba(2,6,23,0.3); border: 1px solid var(--border); margin-bottom: 1rem; backdrop-filter: blur(10px); }
-    a { color: #7dd3fc; text-decoration: none; }
-    table { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.03); }
-    th, td { padding: 0.85rem; border-bottom: 1px solid rgba(148,163,184,0.16); }
-    th { color: var(--muted); text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.08em; }
-    .stat-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem; }
-    .stat-card { padding:0.85rem 1rem; border-radius:14px; background: rgba(255,255,255,0.04); border:1px solid rgba(148,163,184,0.12); }
+    .pill { display:inline-flex; gap:0.35rem; align-items:center; padding:0.45rem 0.7rem; border-radius:999px; background:rgba(56,189,248,0.15); color:#7dd3fc; font-size:0.85rem; font-weight:600; }
+    .card { background:linear-gradient(145deg, var(--panel), var(--panel-soft)); border:1px solid var(--border); border-radius:20px; padding:1.2rem; margin-bottom:1rem; box-shadow:0 20px 50px rgba(2,6,23,0.16); backdrop-filter: blur(12px); animation: fadeIn .5s ease both; }
+    .card h3 { margin:0 0 1rem; font-size:1.2rem; }
+    .action-links { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+    .action-links a { padding:0.7rem 1.2rem; border-radius:12px; background:linear-gradient(90deg, var(--accent), var(--accent-2)); color:white; text-decoration:none; font-weight:600; transition: all 0.2s ease; }
+    .action-links a:hover { transform: translateY(-1px); box-shadow:0 8px 20px rgba(56,189,248,0.2); }
+    .alert { padding:1rem; border-radius:12px; background:rgba(59,130,246,0.15); border-left:3px solid var(--accent); color:var(--text); margin-bottom:1rem; }
+    .alert ul { margin:0.5rem 0 0 1.2rem; }
+    .alert li { margin:0.35rem 0; }
+    table { width:100%; border-collapse:collapse; background:rgba(255,255,255,0.03); }
+    th, td { padding:0.9rem; border-bottom:1px solid rgba(148,163,184,0.16); text-align:left; }
+    th { color:var(--muted); text-transform:uppercase; font-size:0.75rem; letter-spacing:0.08em; font-weight:600; }
+    tbody tr { transition: background 0.2s ease; }
+    tbody tr:hover { background:rgba(255,255,255,0.06); }
+    .metric { display:inline-block; padding:0.4rem 0.8rem; border-radius:8px; background:var(--surface); border:1px solid var(--border); font-family:monospace; font-size:0.9rem; margin-right:0.5rem; }
+    .positive { color:var(--success); }
+    .negative { color:var(--danger); }
+    .neutral { color:var(--warn); }
+    .mobile-toggle { display:none; }
+    .theme-toggle { border:none; background:rgba(255,255,255,0.16); color:inherit; border-radius:999px; padding:0.55rem 0.8rem; cursor:pointer; transition: all 0.2s ease; }
+    .theme-toggle:hover { background:rgba(255,255,255,0.24); }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform: translateY(0);} }
+    @media (max-width: 900px) { .app-shell { flex-direction:column; } .sidebar { width:100%; flex-direction:row; flex-wrap:wrap; justify-content:space-around; } .container { padding:1rem; } }
+    @media (max-width: 640px) { .mobile-toggle { display:inline-block; } .sidebar { display:none; } .sidebar.open { display:flex; } .topbar { flex-wrap:wrap; gap:0.6rem; } }
   </style>
 </head>
 <body>
-  <nav>
-    <strong>TransitOps</strong>
-    <div><a href="/dashboard">Dashboard</a><a href="/vehicles">Vehicles</a><a href="/drivers">Drivers</a><a href="/trips">Trips</a><a href="/maintenance">Maintenance</a><a href="/expenses">Expenses</a><a href="/reports">Reports</a></div>
-  </nav>
-  <div class="container">
-    <div class="hero">
-      <div>
-        <h2>Reports & Analytics</h2>
-        <p>Turn fleet operations into clear, executive-ready visibility.</p>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <strong>TransitOps</strong>
+      <a href="/dashboard">▣ Dashboard</a>
+      <a href="/vehicles">🚛 Vehicles</a>
+      <a href="/drivers">👤 Drivers</a>
+      <a href="/trips">🛣️ Trips</a>
+      <a href="/maintenance">🛠️ Maintenance</a>
+      <a href="/expenses">💸 Expenses</a>
+      <a class="active" href="/reports">📊 Reports</a>
+      <a href="/logout">↩ Logout</a>
+    </aside>
+    <div class="main-panel">
+      <div class="topbar">
+        <div><strong>Analytics & Reports</strong><div class="muted" style="font-size:0.9rem;">Executive insights</div></div>
+        <div style="display:flex; gap:0.6rem; align-items:center;">
+          <button class="mobile-toggle theme-toggle" type="button" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+          <button class="theme-toggle" type="button" id="theme-toggle">🌙 Dark</button>
+        </div>
       </div>
-      <div class="pill">Signed in as {{ session.get('role', 'User') }}</div>
-    </div>
-    <div class="card">
-      <a href="/export/csv">Export CSV</a> | <a href="/reminders/send">Send Reminder Notice</a>
-    </div>
-    {% if reminders %}
-    <div class="card">
-      <h3>License Reminder Alerts</h3>
-      <ul>
-        {% for reminder in reminders %}
-        <li>{{ reminder.name }} — expires {{ reminder.license_expiry }}</li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
-    <div class="card">
-      <table>
-        <tr><th>Vehicle</th><th>Fuel Efficiency</th><th>Operational Cost</th><th>ROI</th></tr>
-        {% for row in report_rows %}
-        <tr>
-          <td>{{ row.vehicle.name }}</td>
-          <td>{{ row.fuel_efficiency }}</td>
-          <td>{{ row.operational_cost }}</td>
-          <td>{{ row.roi }}</td>
-        </tr>
-        {% endfor %}
-      </table>
+      <div class="container">
+        <div class="hero">
+          <div>
+            <h2>Reports & Analytics</h2>
+            <p>Turn fleet operations into clear, executive-ready visibility.</p>
+          </div>
+          <div class="pill">📊 Signed in as {{ session.get('role', 'User') }}</div>
+        </div>
+        <div class="card">
+          <div class="action-links">
+            <a href="/export/csv">⬇️ Export CSV</a>
+            <a href="/reminders/send">📧 Send Reminders</a>
+          </div>
+        </div>
+        {% if reminders %}
+        <div class="card alert">
+          <strong>⚠️ License Renewal Alerts</strong>
+          <ul>
+            {% for reminder in reminders %}
+            <li><strong>{{ reminder.name }}</strong> — License expires <span class="neutral">{{ reminder.license_expiry }}</span></li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        <div class="card">
+          <h3>Fleet Performance Summary</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Vehicle</th>
+                <th>Fuel Efficiency (km/L)</th>
+                <th>Operational Cost</th>
+                <th>ROI</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in report_rows %}
+              <tr>
+                <td><strong>{{ row.vehicle.name }}</strong></td>
+                <td><span class="metric">{{ row.fuel_efficiency }}</span></td>
+                <td><span class="metric">${{ "%.2f"|format(row.operational_cost) }}</span></td>
+                <td>
+                  <span class="metric {% if row.roi >= 0 %}positive{% else %}negative{% endif %}">
+                    {{ row.roi }}%
+                  </span>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="4" style="text-align:center; color:var(--muted); padding:2rem;">No data available yet. Run some trips to generate reports.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
+  <script>
+    const body = document.body;
+    const themeButton = document.getElementById('theme-toggle');
+    const storedTheme = localStorage.getItem('transitops-theme') || 'dark';
+    if (storedTheme === 'light') body.classList.add('light');
+    const applyTheme = () => {
+      const isLight = body.classList.contains('light');
+      themeButton.textContent = isLight ? '🌙 Dark' : '☀️ Light';
+      body.style.colorScheme = isLight ? 'light' : 'dark';
+    };
+    applyTheme();
+    themeButton.addEventListener('click', () => {
+      body.classList.toggle('light');
+      localStorage.setItem('transitops-theme', body.classList.contains('light') ? 'light' : 'dark');
+      applyTheme();
+    });
+  </script>
 </body>
 </html>
