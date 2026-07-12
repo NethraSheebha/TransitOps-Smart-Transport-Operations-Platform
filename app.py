@@ -143,9 +143,30 @@ def seed_default_users():
     db.session.commit()
 
 
+def seed_ten_vehicles():
+    # Only seed if there are no vehicles yet
+    if Vehicle.query.count() != 0:
+        return
+    vehicles = [
+        Vehicle(registration_number="VAN-05", name="Ford Transit", vehicle_type="Van", max_load_capacity=500, odometer=12000, acquisition_cost=35000, status="Available", region="North"),
+        Vehicle(registration_number="TRK-01", name="Volvo FH16", vehicle_type="Heavy Truck", max_load_capacity=15000, odometer=85000, acquisition_cost=120000, status="Available", region="North"),
+        Vehicle(registration_number="TRK-02", name="Isuzu NPR", vehicle_type="Box Truck", max_load_capacity=4000, odometer=45000, acquisition_cost=55000, status="On Trip", region="South"),
+        Vehicle(registration_number="VAN-02", name="Mercedes Sprinter", vehicle_type="Van", max_load_capacity=1200, odometer=62000, acquisition_cost=42000, status="In Shop", region="West"),
+        Vehicle(registration_number="VAN-03", name="Chevy Express", vehicle_type="Van", max_load_capacity=800, odometer=195000, acquisition_cost=28000, status="Retired", region="North"),
+        Vehicle(registration_number="TRK-03", name="Scania R500", vehicle_type="Heavy Truck", max_load_capacity=18000, odometer=110000, acquisition_cost=135000, status="Available", region="South"),
+        Vehicle(registration_number="TRK-04", name="Freightliner Cascadia", vehicle_type="Heavy Truck", max_load_capacity=20000, odometer=95000, acquisition_cost=145000, status="On Trip", region="West"),
+        Vehicle(registration_number="VAN-04", name="RAM ProMaster", vehicle_type="Van", max_load_capacity=1000, odometer=28000, acquisition_cost=38000, status="Available", region="North"),
+        Vehicle(registration_number="TRK-05", name="Hino 268", vehicle_type="Box Truck", max_load_capacity=5000, odometer=73000, acquisition_cost=62000, status="In Shop", region="South"),
+        Vehicle(registration_number="VAN-06", name="Nissan NV2500", vehicle_type="Van", max_load_capacity=900, odometer=15000, acquisition_cost=31000, status="Available", region="West"),
+    ]
+    db.session.add_all(vehicles)
+    db.session.commit()
+
+
 with app.app_context():
     db.create_all()
     seed_default_users()
+    seed_ten_vehicles()
 
 
 @app.route("/")
