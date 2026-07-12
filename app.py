@@ -56,6 +56,9 @@ class Vehicle(db.Model):
         }
 
 
+ALLOWED_VEHICLE_STATUSES = {"Available", "On Trip", "In Shop", "Retired"}
+
+
 class Driver(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
@@ -145,7 +148,6 @@ def seed_default_users():
 
 
 def seed_ten_vehicles():
-    # Only seed if there are no vehicles yet
     if Vehicle.query.count() != 0:
         return
     vehicles = [
@@ -180,20 +182,52 @@ def index():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        user = User.query.filter_by(email=request.form["email"]).first()
-        password = request.form["password"]
+        # normalize and validate email
+        raw_email = request.form.get("email", "").strip()
+        email = raw_email.lower()
+        password = request.form.get("password", "")
         selected_role = request.form.get("role", "").strip()
+
+        # initialize failed attempts store in session
+        failed = session.get("failed_attempts", {})
+        attempts = failed.get(email, 0)
+        locked_threshold = 5
+        if attempts >= locked_threshold:
+            return render_template("login.html", error="Account locked after 5 failed attempts.\nPlease contact your administrator.")
+
+        # basic email format check (requires @ and a domain)
+        if "@" not in email or "." not in email.split("@")[-1]:
+            return render_template("login.html", error="Invalid email format. Please enter a valid email (eg. name@gmail.com)")
+
+        user = User.query.filter_by(email=email).first()
         password_valid = False
         if user:
             password_valid = verify_password(user.password, password)
+            # ensure stored passwords are hashed
             if password_valid and not is_hashed_password(user.password):
                 user.password = generate_password_hash(password)
                 db.session.commit()
-        if user and password_valid:
-            session["user_id"] = user.id
-            session["role"] = selected_role or user.role
-            return redirect(url_for("dashboard"))
-    return render_template("login.html", error="Invalid email or password")
+
+        # enforce role match
+        if not user or not password_valid or (selected_role and user.role != selected_role):
+            # increment failed attempts for this email
+            attempts += 1
+            failed[email] = attempts
+            session["failed_attempts"] = failed
+            # locked message if threshold reached
+            if attempts >= locked_threshold:
+                return render_template("login.html", error="Invalid credentials.\nAccount locked after 5 failed attempts.")
+            return render_template("login.html", error=f"Invalid credentials.\nFailed attempts: {attempts} of {locked_threshold}")
+
+        # successful login
+        session["user_id"] = user.id
+        session["role"] = user.role
+        # reset failed attempts for this user
+        if email in failed:
+            failed.pop(email, None)
+            session["failed_attempts"] = failed
+        return redirect(url_for("dashboard"))
+    return render_template("login.html", error=None)
 
 
 @app.route("/logout")
@@ -207,26 +241,45 @@ def dashboard():
     if not is_authenticated():
         return redirect(url_for("login"))
 
-    vehicles = Vehicle.query.all()
+    # filter params (vehicle_type, status, region)
+    vehicle_type = request.args.get("vehicle_type")
+    status_filter = request.args.get("status")
+    region_filter = request.args.get("region")
+
+    query = Vehicle.query
+    if vehicle_type:
+        query = query.filter(Vehicle.vehicle_type == vehicle_type)
+    if status_filter:
+        query = query.filter(Vehicle.status == status_filter)
+    if region_filter:
+        query = query.filter(Vehicle.region == region_filter)
+
+    vehicles = query.order_by(Vehicle.id.desc()).all()
+    # trips and drivers limited to selected vehicles for accurate KPIs
+    vehicle_ids = [v.id for v in vehicles]
+    trips = Trip.query.filter(Trip.vehicle_id.in_(vehicle_ids)).order_by(Trip.id.desc()).all() if vehicle_ids else []
     drivers = Driver.query.all()
-    trips = Trip.query.all()
     maintenance_logs = MaintenanceLog.query.filter_by(is_open=True).all()
     fuel_logs = FuelLog.query.all()
     expenses = Expense.query.all()
 
-    active_vehicles = sum(1 for v in vehicles if v.status == "Available")
+    # active_vehicles = vehicles currently out on delivery (status == "On Trip")
+    active_vehicles = sum(1 for v in vehicles if v.status == "On Trip")
+    # available = vehicles explicitly marked Available
     available_vehicles = sum(1 for v in vehicles if v.status == "Available")
     maintenance_vehicles = sum(1 for v in vehicles if v.status == "In Shop")
     active_trips = sum(1 for t in trips if t.state == "Dispatched")
     pending_trips = sum(1 for t in trips if t.state == "Draft")
+    # drivers on duty: drivers whose status is "On Trip"
     drivers_on_duty = sum(1 for d in drivers if d.status == "On Trip")
     fleet_utilization = round((active_trips / len(vehicles) * 100) if vehicles else 0, 1)
 
     chart_data = {
         "statuses": {
-            "Available": active_vehicles,
+            "Available": available_vehicles,
             "In Shop": maintenance_vehicles,
-            "On Trip": active_trips,
+            # On Trip should reflect active_vehicles (vehicles currently out on delivery)
+            "On Trip": active_vehicles,
         },
         "regions": {
             "North": sum(1 for v in vehicles if v.region == "North"),
@@ -234,6 +287,11 @@ def dashboard():
             "West": sum(1 for v in vehicles if v.region == "West"),
         },
     }
+
+    # used for populating filter dropdowns
+    all_types = sorted({v.vehicle_type for v in Vehicle.query.all()})
+    all_statuses = sorted({v.status for v in Vehicle.query.all()})
+    all_regions = sorted({v.region for v in Vehicle.query.all()})
 
     return render_template(
         "dashboard.html",
@@ -253,7 +311,68 @@ def dashboard():
             "drivers_on_duty": drivers_on_duty,
             "fleet_utilization": fleet_utilization,
         },
+        filters={"vehicle_type": vehicle_type or "", "status": status_filter or "", "region": region_filter or ""},
+        filter_options={"types": all_types, "statuses": all_statuses, "regions": all_regions},
     )
+
+
+@app.route('/api/kpis')
+def api_kpis():
+    if not is_authenticated():
+        return jsonify({'error': 'unauthorized'}), 401
+
+    vehicle_type = request.args.get("vehicle_type")
+    status_filter = request.args.get("status")
+    region_filter = request.args.get("region")
+
+    query = Vehicle.query
+    if vehicle_type:
+        query = query.filter(Vehicle.vehicle_type == vehicle_type)
+    if status_filter:
+        query = query.filter(Vehicle.status == status_filter)
+    if region_filter:
+        query = query.filter(Vehicle.region == region_filter)
+
+    vehicles = query.all()
+    vehicle_ids = [v.id for v in vehicles]
+    trips = Trip.query.filter(Trip.vehicle_id.in_(vehicle_ids)).all() if vehicle_ids else []
+
+    # active_vehicles = vehicles currently out on delivery (status == "On Trip")
+    active_vehicles = sum(1 for v in vehicles if v.status == "On Trip")
+    available_vehicles = sum(1 for v in vehicles if v.status == "Available")
+    maintenance_vehicles = sum(1 for v in vehicles if v.status == "In Shop")
+    active_trips = sum(1 for t in trips if t.state == "Dispatched")
+    pending_trips = sum(1 for t in trips if t.state == "Draft")
+    # drivers_on_duty should reflect drivers whose status is "On Trip"
+    drivers = Driver.query.all()
+    drivers_on_duty = sum(1 for d in drivers if d.status == "On Trip")
+    fleet_utilization = round((active_trips / len(vehicles) * 100) if vehicles else 0, 1)
+
+    chart_data = {
+        "statuses": {
+            "Available": available_vehicles,
+            "In Shop": maintenance_vehicles,
+            "On Trip": active_vehicles,
+        },
+        "regions": {
+            "North": sum(1 for v in vehicles if v.region == "North"),
+            "South": sum(1 for v in vehicles if v.region == "South"),
+            "West": sum(1 for v in vehicles if v.region == "West"),
+        },
+    }
+
+    return jsonify({
+        'kpis': {
+            'active_vehicles': active_vehicles,
+            'available_vehicles': available_vehicles,
+            'maintenance_vehicles': maintenance_vehicles,
+            'active_trips': active_trips,
+            'pending_trips': pending_trips,
+            'drivers_on_duty': drivers_on_duty,
+            'fleet_utilization': fleet_utilization,
+        },
+        'chart_data': chart_data,
+    })
 
 
 @app.route("/vehicles", methods=["GET", "POST"])
@@ -263,16 +382,55 @@ def vehicles():
     if not has_role(["Fleet Manager", "Safety Officer"]):
         return ("Forbidden", 403)
     if request.method == "POST":
+        # server-side validation
+        reg = request.form.get("registration_number", "").strip()
+        name = request.form.get("name", "").strip()
+        vtype = request.form.get("vehicle_type", "").strip()
+        try:
+            capacity = float(request.form.get("max_load_capacity", 0))
+        except Exception:
+            capacity = None
+        try:
+            odometer = float(request.form.get("odometer", 0))
+        except Exception:
+            odometer = 0
+        try:
+            acq = float(request.form.get("acquisition_cost", 0))
+        except Exception:
+            acq = 0
+        status = request.form.get("status", "Available").strip()
+        region = request.form.get("region", "North").strip()
+        notes = request.form.get("notes", "")
+
+        errors = []
+        if not reg:
+            errors.append("Registration number is required.")
+        if not name:
+            errors.append("Vehicle name/model is required.")
+        if not vtype:
+            errors.append("Vehicle type is required.")
+        if capacity is None:
+            errors.append("Max load capacity must be a number.")
+        if status not in ALLOWED_VEHICLE_STATUSES:
+            errors.append(f"Invalid status. Allowed: {', '.join(ALLOWED_VEHICLE_STATUSES)}")
+
+        # uniqueness check
+        if reg and Vehicle.query.filter_by(registration_number=reg).first():
+            errors.append("Registration number already exists.")
+
+        if errors:
+            return render_template("vehicles.html", vehicles=Vehicle.query.order_by(Vehicle.id.desc()).all(), vehicle_to_edit=None, filters={"q": "", "status": "", "region": "", "sort": "id"}, error="\n".join(errors))
+
         vehicle = Vehicle(
-            registration_number=request.form["registration_number"],
-            name=request.form["name"],
-            vehicle_type=request.form["vehicle_type"],
-            max_load_capacity=float(request.form["max_load_capacity"]),
-            odometer=float(request.form.get("odometer", 0)),
-            acquisition_cost=float(request.form.get("acquisition_cost", 0)),
-            status=request.form.get("status", "Available"),
-            region=request.form.get("region", "North"),
-            notes=request.form.get("notes", ""),
+            registration_number=reg,
+            name=name,
+            vehicle_type=vtype,
+            max_load_capacity=capacity,
+            odometer=odometer,
+            acquisition_cost=acq,
+            status=status,
+            region=region,
+            notes=notes,
         )
         db.session.add(vehicle)
         db.session.commit()
@@ -312,25 +470,58 @@ def edit_vehicle(vehicle_id):
     if not has_role(["Fleet Manager", "Safety Officer"]):
         return ("Forbidden", 403)
     vehicle = Vehicle.query.get_or_404(vehicle_id)
+    # If the edit form was submitted with no fields, treat as no-op and redirect
+    if not request.form:
+        return redirect(url_for("vehicles"))
+    # validate edits
+    reg = request.form.get("registration_number", "").strip()
+    name = request.form.get("name", "").strip()
+    vtype = request.form.get("vehicle_type", "").strip()
+    try:
+        capacity = float(request.form.get("max_load_capacity", 0))
+    except Exception:
+        capacity = None
+    try:
+        odometer = float(request.form.get("odometer", vehicle.odometer))
+    except Exception:
+        odometer = vehicle.odometer
+    try:
+        acq = float(request.form.get("acquisition_cost", vehicle.acquisition_cost))
+    except Exception:
+        acq = vehicle.acquisition_cost
+    status = request.form.get("status", vehicle.status).strip()
+    region = request.form.get("region", vehicle.region).strip()
+    notes = request.form.get("notes", vehicle.notes)
 
-    if "registration_number" in request.form and request.form["registration_number"]:
-        vehicle.registration_number = request.form["registration_number"]
-    if "name" in request.form and request.form["name"]:
-        vehicle.name = request.form["name"]
-    if "vehicle_type" in request.form and request.form["vehicle_type"]:
-        vehicle.vehicle_type = request.form["vehicle_type"]
-    if "max_load_capacity" in request.form and request.form["max_load_capacity"]:
-        vehicle.max_load_capacity = float(request.form["max_load_capacity"])
-    if "odometer" in request.form and request.form["odometer"]:
-        vehicle.odometer = float(request.form["odometer"])
-    if "acquisition_cost" in request.form and request.form["acquisition_cost"]:
-        vehicle.acquisition_cost = float(request.form["acquisition_cost"])
-    if "status" in request.form and request.form["status"]:
-        vehicle.status = request.form["status"]
-    if "region" in request.form and request.form["region"]:
-        vehicle.region = request.form["region"]
-    if "notes" in request.form:
-        vehicle.notes = request.form["notes"]
+    errors = []
+    if not reg:
+        errors.append("Registration number is required.")
+    if not name:
+        errors.append("Vehicle name/model is required.")
+    if not vtype:
+        errors.append("Vehicle type is required.")
+    if capacity is None:
+        errors.append("Max load capacity must be a number.")
+    if status not in ALLOWED_VEHICLE_STATUSES:
+        errors.append(f"Invalid status. Allowed: {', '.join(ALLOWED_VEHICLE_STATUSES)}")
+
+    # uniqueness check (exclude current vehicle)
+    existing = Vehicle.query.filter_by(registration_number=reg).first()
+    if existing and existing.id != vehicle.id:
+        errors.append("Registration number already exists.")
+
+    if errors:
+        return render_template("vehicles.html", vehicles=Vehicle.query.order_by(Vehicle.id.desc()).all(), vehicle_to_edit=vehicle, filters={"q": "", "status": "", "region": "", "sort": "id"}, error="\n".join(errors))
+
+    vehicle.registration_number = reg
+    vehicle.name = name
+    vehicle.vehicle_type = vtype
+    vehicle.max_load_capacity = capacity
+    vehicle.odometer = odometer
+    vehicle.acquisition_cost = acq
+    vehicle.status = status
+    vehicle.region = region
+    vehicle.notes = notes
 
     db.session.commit()
     return redirect(url_for("vehicles"))
