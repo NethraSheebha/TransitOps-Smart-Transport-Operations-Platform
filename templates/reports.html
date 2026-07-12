@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>TransitOps Reports</title>
+  <style>
+    :root { --bg:#07111f; --panel:rgba(15,23,42,0.88); --panel-soft:rgba(30,41,59,0.72); --text:#f8fafc; --muted:#94a3b8; --accent:#38bdf8; --accent-2:#818cf8; --border:rgba(148,163,184,0.16); }
+    * { box-sizing: border-box; }
+    body { font-family: Inter, Arial, sans-serif; margin: 0; min-height:100vh; background: radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 24%), linear-gradient(135deg, #020617 0%, #07111f 45%, #111c31 100%); color: var(--text); }
+    nav { background: rgba(2,6,23,0.85); backdrop-filter: blur(16px); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom:1px solid rgba(255,255,255,0.08); }
+    nav a { color: white; margin-left: 1rem; text-decoration: none; opacity: 0.9; }
+    .container { padding: 2rem; max-width: 1440px; margin: 0 auto; }
+    .hero { display:flex; justify-content:space-between; align-items:end; gap:1rem; margin-bottom:1.2rem; }
+    .hero h2 { margin:0 0 0.25rem; font-size:2rem; }
+    .hero p { margin:0; color:var(--muted); }
+    .pill { display:inline-flex; gap:0.35rem; align-items:center; padding:0.45rem 0.7rem; border-radius:999px; background:rgba(56,189,248,0.15); color:#7dd3fc; font-size:0.85rem; }
+    .card { background: linear-gradient(135deg, var(--panel), var(--panel-soft)); padding: 1.15rem 1.25rem; border-radius: 20px; box-shadow: 0 20px 50px rgba(2,6,23,0.3); border: 1px solid var(--border); margin-bottom: 1rem; backdrop-filter: blur(10px); }
+    a { color: #7dd3fc; text-decoration: none; }
+    table { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.03); }
+    th, td { padding: 0.85rem; border-bottom: 1px solid rgba(148,163,184,0.16); }
+    th { color: var(--muted); text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.08em; }
+    .stat-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem; }
+    .stat-card { padding:0.85rem 1rem; border-radius:14px; background: rgba(255,255,255,0.04); border:1px solid rgba(148,163,184,0.12); }
+  </style>
+</head>
+<body>
+  <nav>
+    <strong>TransitOps</strong>
+    <div><a href="/dashboard">Dashboard</a><a href="/vehicles">Vehicles</a><a href="/drivers">Drivers</a><a href="/trips">Trips</a><a href="/maintenance">Maintenance</a><a href="/expenses">Expenses</a><a href="/reports">Reports</a></div>
+  </nav>
+  <div class="container">
+    <div class="hero">
+      <div>
+        <h2>Reports & Analytics</h2>
+        <p>Turn fleet operations into clear, executive-ready visibility.</p>
+      </div>
+      <div class="pill">Signed in as {{ session.get('role', 'User') }}</div>
+    </div>
+    <div class="card">
+      <a href="/export/csv">Export CSV</a> | <a href="/reminders/send">Send Reminder Notice</a>
+    </div>
+    {% if reminders %}
+    <div class="card">
+      <h3>License Reminder Alerts</h3>
+      <ul>
+        {% for reminder in reminders %}
+        <li>{{ reminder.name }} — expires {{ reminder.license_expiry }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <div class="card">
+      <table>
+        <tr><th>Vehicle</th><th>Fuel Efficiency</th><th>Operational Cost</th><th>ROI</th></tr>
+        {% for row in report_rows %}
+        <tr>
+          <td>{{ row.vehicle.name }}</td>
+          <td>{{ row.fuel_efficiency }}</td>
+          <td>{{ row.operational_cost }}</td>
+          <td>{{ row.roi }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>TransitOps Expenses</title>
+  <style>
+    :root { --bg:#07111f; --panel:rgba(15,23,42,0.88); --panel-soft:rgba(30,41,59,0.72); --text:#f8fafc; --muted:#94a3b8; --accent:#38bdf8; --accent-2:#818cf8; --border:rgba(148,163,184,0.16); }
+    * { box-sizing: border-box; }
+    body { font-family: Inter, Arial, sans-serif; margin: 0; min-height:100vh; background: radial-gradient(circle at top right, rgba(56,189,248,0.18), transparent 24%), linear-gradient(135deg, #020617 0%, #07111f 45%, #111c31 100%); color: var(--text); }
+    nav { background: rgba(2,6,23,0.85); backdrop-filter: blur(16px); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom:1px solid rgba(255,255,255,0.08); }
+    nav a { color: white; margin-left: 1rem; text-decoration: none; opacity: 0.9; }
+    .container { padding: 2rem; max-width: 1440px; margin: 0 auto; }
+    .hero { display:flex; justify-content:space-between; align-items:end; gap:1rem; margin-bottom:1.2rem; }
+    .hero h2 { margin:0 0 0.25rem; font-size:2rem; }
+    .hero p { margin:0; color:var(--muted); }
+    .pill { display:inline-flex; gap:0.35rem; align-items:center; padding:0.45rem 0.7rem; border-radius:999px; background:rgba(56,189,248,0.15); color:#7dd3fc; font-size:0.85rem; }
+    .card { background: linear-gradient(135deg, var(--panel), var(--panel-soft)); padding: 1.15rem 1.25rem; border-radius: 20px; box-shadow: 0 20px 50px rgba(2,6,23,0.3); border: 1px solid var(--border); margin-bottom: 1rem; backdrop-filter: blur(10px); }
+    form { display:flex; flex-wrap:wrap; gap:0.7rem; }
+    input, select, button { padding: 0.8rem 0.9rem; border-radius: 12px; border: 1px solid rgba(148,163,184,0.25); background: rgba(248,250,252,0.05); color: var(--text); }
+    button { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white; border: none; cursor: pointer; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.03); }
+    th, td { padding: 0.85rem; border-bottom: 1px solid rgba(148,163,184,0.16); }
+    th { color: var(--muted); text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.08em; }
+  </style>
+</head>
+<body>
+  <nav>
+    <strong>TransitOps</strong>
+    <div><a href="/dashboard">Dashboard</a><a href="/vehicles">Vehicles</a><a href="/drivers">Drivers</a><a href="/trips">Trips</a><a href="/maintenance">Maintenance</a><a href="/expenses">Expenses</a><a href="/reports">Reports</a></div>
+  </nav>
+  <div class="container">
+    <div class="hero">
+      <div>
+        <h2>Fuel & Expense Management</h2>
+        <p>Monitor costs and operational spending with a premium command center feel.</p>
+      </div>
+      <div class="pill">Signed in as {{ session.get('role', 'User') }}</div>
+    </div>
+    <div class="card">
+    <form method="post">
+      <select name="vehicle_id">
+        {% for vehicle in vehicles %}
+        <option value="{{ vehicle.id }}">{{ vehicle.registration_number }} - {{ vehicle.name }}</option>
+        {% endfor %}
+      </select>
+      <input name="description" placeholder="Description" required />
+      <input name="amount" type="number" placeholder="Amount" required />
+      <button type="submit">Add Expense</button>
+    </form>
+    </div>
+    <div class="card">
+    <table>
+      <tr><th>ID</th><th>Vehicle</th><th>Description</th><th>Amount</th></tr>
+      {% for expense in expenses %}
+      <tr><td>{{ expense.id }}</td><td>{{ expense.vehicle_id }}</td><td>{{ expense.description }}</td><td>{{ expense.amount }}</td></tr>
+      {% endfor %}
+    </table>
+    </div>
+  </div>
+</body>
+</html>

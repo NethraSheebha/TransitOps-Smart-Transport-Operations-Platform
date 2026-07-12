@@ -1,0 +1,138 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TransitOps Trips</title>
+  <style>
+    :root { --bg:#020617; --panel:rgba(15,23,42,0.86); --panel-soft:rgba(30,41,59,0.72); --text:#f8fafc; --muted:#94a3b8; --accent:#38bdf8; --accent-2:#818cf8; --border:rgba(148,163,184,0.16); --surface:rgba(255,255,255,0.04); }
+    body.light { --bg:#f8fafc; --panel:#ffffff; --panel-soft:#f8fbff; --text:#0f172a; --muted:#64748b; --accent:#2563eb; --accent-2:#38bdf8; --border:rgba(15,23,42,0.08); --surface:rgba(15,23,42,0.03); }
+    * { box-sizing: border-box; }
+    body { font-family: Inter, Arial, sans-serif; margin:0; min-height:100vh; background:radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 24%), linear-gradient(135deg, #020617 0%, #07111f 45%, #111c31 100%); color:var(--text); transition: background .3s ease, color .3s ease; }
+    body.light { background:radial-gradient(circle at top left, rgba(56,189,248,0.12), transparent 24%), linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%); }
+    .app-shell { display:flex; min-height:100vh; }
+    .sidebar { width:250px; background:linear-gradient(180deg, #0f172a, #111c31); color:white; padding:1.1rem 1rem; display:flex; flex-direction:column; gap:0.6rem; box-shadow: 12px 0 36px rgba(2,6,23,0.18); }
+    body.light .sidebar { background:linear-gradient(180deg, #0f172a, #1d4ed8); }
+    .sidebar a { color:white; text-decoration:none; padding:0.8rem 0.9rem; border-radius:12px; display:flex; align-items:center; gap:0.75rem; opacity:0.9; transition: background .2s ease, transform .2s ease; }
+    .sidebar a:hover { background:rgba(255,255,255,0.14); transform: translateX(3px); }
+    .sidebar a.active { background:linear-gradient(90deg, rgba(56,189,248,0.24), rgba(129,140,248,0.2)); opacity:1; }
+    .main-panel { flex:1; display:flex; flex-direction:column; }
+    .topbar { background:rgba(2,6,23,0.7); color:white; padding:1rem 1.2rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px); }
+    body.light .topbar { background:rgba(255,255,255,0.76); color:#0f172a; }
+    .container { padding:1.4rem; max-width:1400px; width:100%; margin:0 auto; }
+    .hero { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1.2rem; flex-wrap:wrap; }
+    .hero h2 { margin:0 0 0.25rem; font-size:1.9rem; }
+    .hero p { margin:0; color:var(--muted); }
+    .pill { display:inline-flex; gap:0.35rem; align-items:center; padding:0.45rem 0.7rem; border-radius:999px; background:rgba(56,189,248,0.15); color:#7dd3fc; font-size:0.85rem; }
+    .card { background:linear-gradient(145deg, var(--panel), var(--panel-soft)); border:1px solid var(--border); border-radius:20px; padding:1.1rem 1.2rem; margin-bottom:1rem; box-shadow:0 20px 50px rgba(2,6,23,0.16); backdrop-filter: blur(12px); animation: fadeIn .5s ease both; }
+    .stat-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.9rem; margin-bottom:1rem; }
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:0.9rem 1rem; }
+    form { display:flex; flex-wrap:wrap; gap:0.7rem; }
+    input, select, button { padding:0.8rem 0.9rem; border-radius:12px; border:1px solid rgba(148,163,184,0.25); background:rgba(248,250,252,0.05); color:var(--text); }
+    button { background:linear-gradient(90deg, var(--accent), var(--accent-2)); color:white; border:none; cursor:pointer; font-weight:700; transition: transform .2s ease, box-shadow .2s ease; }
+    button:hover { transform: translateY(-1px); box-shadow:0 8px 20px rgba(56,189,248,0.16); }
+    table { width:100%; border-collapse:collapse; background:rgba(255,255,255,0.03); }
+    th, td { padding:0.85rem; border-bottom:1px solid rgba(148,163,184,0.16); }
+    th { color:var(--muted); text-transform:uppercase; font-size:0.78rem; letter-spacing:0.08em; }
+    .mobile-toggle { display:none; }
+    .theme-toggle { border:none; background:rgba(255,255,255,0.16); color:inherit; border-radius:999px; padding:0.55rem 0.8rem; cursor:pointer; }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform: translateY(0);} }
+    @media (max-width: 900px) { .app-shell { flex-direction:column; } .sidebar { width:100%; flex-direction:row; flex-wrap:wrap; justify-content:space-around; } }
+    @media (max-width: 640px) { .mobile-toggle { display:inline-flex; } .sidebar { display:none; } .sidebar.open { display:flex; } .container { padding:1rem; } }
+  </style>
+</head>
+<body class="light">
+  <div class="app-shell">
+    <aside class="sidebar open" id="sidebar">
+      <strong style="font-size:1.05rem; margin-bottom:0.2rem;">TransitOps</strong>
+      <a href="/dashboard">▣ Dashboard</a>
+      <a href="/vehicles">🚛 Vehicles</a>
+      <a href="/drivers">👤 Drivers</a>
+      <a class="active" href="/trips">🛣️ Trips</a>
+      <a href="/expenses">💸 Expenses</a>
+      <a href="/reports">📊 Reports</a>
+      <a href="/logout">↩ Logout</a>
+    </aside>
+    <div class="main-panel">
+      <div class="topbar">
+        <div><strong>Trip Operations</strong><div class="muted">Dispatch control</div></div>
+        <div style="display:flex; gap:0.6rem; align-items:center;">
+          <button class="mobile-toggle theme-toggle" type="button" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+          <button class="theme-toggle" type="button" id="theme-toggle">☀️ Light</button>
+        </div>
+      </div>
+      <div class="container">
+        <div class="hero">
+          <div>
+            <h2>Trip Management</h2>
+            <p>Plan dispatches, monitor route progress, and keep every shipment on schedule.</p>
+          </div>
+          <div class="pill">Signed in as {{ session.get('role', 'User') }}</div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="muted">Active Trips</div><strong>{{ trips|selectattr('state', 'equalto', 'Dispatched')|list|length }}</strong></div>
+          <div class="stat-card"><div class="muted">Pending</div><strong>{{ trips|selectattr('state', 'equalto', 'Draft')|list|length }}</strong></div>
+          <div class="stat-card"><div class="muted">Completed</div><strong>{{ trips|selectattr('state', 'equalto', 'Completed')|list|length }}</strong></div>
+        </div>
+        {% if errors %}
+          <div class="card" style="color:#ef4444;">{{ errors | join(', ') }}</div>
+        {% endif %}
+        <div class="card">
+          <form method="post">
+            <input name="source" placeholder="Source" required />
+            <input name="destination" placeholder="Destination" required />
+            <input name="cargo_weight" type="number" placeholder="Cargo Weight" required />
+            <input name="planned_distance" type="number" placeholder="Planned Distance" required />
+            <select name="vehicle_id" required>
+              {% for vehicle in vehicles %}
+              <option value="{{ vehicle.id }}">{{ vehicle.registration_number }} - {{ vehicle.name }}</option>
+              {% endfor %}
+            </select>
+            <select name="driver_id" required>
+              {% for driver in drivers %}
+              <option value="{{ driver.id }}">{{ driver.name }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit">Create Trip</button>
+          </form>
+        </div>
+        <div class="card">
+          <table>
+            <tr><th>ID</th><th>Route</th><th>Weight</th><th>State</th><th>Actions</th></tr>
+            {% for trip in trips %}
+            <tr>
+              <td>{{ trip.id }}</td>
+              <td>{{ trip.source }} → {{ trip.destination }}</td>
+              <td>{{ trip.cargo_weight }}</td>
+              <td>{{ trip.state }}</td>
+              <td>
+                <form action="/trips/{{ trip.id }}/dispatch" method="post" style="display:inline"><button type="submit">Dispatch</button></form>
+                <form action="/trips/{{ trip.id }}/complete" method="post" style="display:inline"><button type="submit">Complete</button></form>
+                <form action="/trips/{{ trip.id }}/cancel" method="post" style="display:inline"><button type="submit">Cancel</button></form>
+              </td>
+            </tr>
+            {% endfor %}
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const body = document.body;
+    const themeButton = document.getElementById('theme-toggle');
+    const storedTheme = localStorage.getItem('transitops-theme');
+    if (storedTheme) body.classList.toggle('light', storedTheme === 'light');
+    const applyTheme = () => {
+      const isLight = body.classList.contains('light');
+      themeButton.textContent = isLight ? '🌙 Dark' : '☀️ Light';
+      body.style.colorScheme = isLight ? 'light' : 'dark';
+    };
+    applyTheme();
+    themeButton.addEventListener('click', () => {
+      body.classList.toggle('light');
+      localStorage.setItem('transitops-theme', body.classList.contains('light') ? 'light' : 'dark');
+      applyTheme();
+    });
+  </script>
+</body>
+</html>

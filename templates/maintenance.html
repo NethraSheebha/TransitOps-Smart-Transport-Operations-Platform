@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>TransitOps Maintenance</title>
+  <style>
+    :root { --bg:#f3f7ff; --panel:#ffffff; --text:#0f172a; --muted:#64748b; --accent:#2563eb; }
+    * { box-sizing: border-box; }
+    body { font-family: Inter, Arial, sans-serif; margin: 0; background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%); color: var(--text); }
+    nav { background: linear-gradient(90deg, #0f172a, #111c31); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+    nav a { color: white; margin-left: 1rem; text-decoration: none; opacity: 0.9; }
+    .container { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+    .card { background: var(--panel); padding: 1rem 1.2rem; border-radius: 16px; box-shadow: 0 10px 30px rgba(15,23,42,0.06); border: 1px solid rgba(148,163,184,0.16); margin-bottom: 1rem; }
+    form { display:flex; flex-wrap:wrap; gap:0.6rem; }
+    input, select, button { padding: 0.75rem; border-radius: 10px; border: 1px solid #cbd5e1; }
+    button { background: linear-gradient(90deg, var(--accent), #38bdf8); color: white; border: none; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; background: white; }
+    th, td { padding: 0.8rem; border-bottom: 1px solid #e5e7eb; }
+    th { color: var(--muted); text-transform: uppercase; font-size: 0.78rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <strong>TransitOps</strong>
+    <div><a href="/dashboard">Dashboard</a><a href="/vehicles">Vehicles</a><a href="/drivers">Drivers</a><a href="/trips">Trips</a><a href="/maintenance">Maintenance</a><a href="/expenses">Expenses</a><a href="/reports">Reports</a></div>
+  </nav>
+  <div class="container">
+    <h2 style="margin-bottom:0.25rem;">Maintenance Logs</h2>
+    <p style="margin-top:0; color:#64748b;">Signed in as <strong>{{ session.get('role', 'User') }}</strong></p>
+    <div class="card">
+    <form method="post">
+      <select name="vehicle_id">
+        {% for vehicle in vehicles %}
+        <option value="{{ vehicle.id }}">{{ vehicle.registration_number }} - {{ vehicle.name }}</option>
+        {% endfor %}
+      </select>
+      <input name="description" placeholder="Maintenance Description" required />
+      <input name="cost" type="number" placeholder="Cost" />
+      <button type="submit">Create Maintenance</button>
+    </form>
+    </div>
+    <div class="card">
+    <table>
+      <tr><th>ID</th><th>Vehicle</th><th>Description</th><th>Status</th><th>Actions</th></tr>
+      {% for log in maintenance_logs %}
+      <tr>
+        <td>{{ log.id }}</td>
+        <td>{{ log.vehicle_id }}</td>
+        <td>{{ log.description }}</td>
+        <td>{% if log.is_open %}Open{% else %}Closed{% endif %}</td>
+        <td>
+          {% if log.is_open %}
+          <form action="/maintenance/{{ log.id }}/close" method="post" style="display:inline"><button type="submit">Close</button></form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    </div>
+  </div>
+</body>
+</html>

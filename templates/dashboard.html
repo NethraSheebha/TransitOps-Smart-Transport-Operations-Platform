@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>TransitOps Dashboard</title>
+  <style>
+    :root { --bg:#f3f7ff; --panel:#ffffff; --panel-2:#f8fbff; --text:#0f172a; --muted:#64748b; --accent:#2563eb; --accent-2:#38bdf8; --good:#10b981; --warn:#f59e0b; --danger:#ef4444; }
+    body.dark { --bg:#020617; --panel:#0f172a; --panel-2:#111c31; --text:#f8fafc; --muted:#94a3b8; --accent:#60a5fa; --accent-2:#818cf8; }
+    * { box-sizing: border-box; }
+    body { font-family: Inter, Arial, sans-serif; margin: 0; background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%); color: var(--text); transition: background .3s ease, color .3s ease; }
+    body.dark { background: linear-gradient(135deg, #020617 0%, #111827 100%); }
+    .app-shell { display:flex; min-height:100vh; }
+    .sidebar { width:260px; background: linear-gradient(180deg, #0f172a, #111c31); color:white; padding:1.2rem 1rem; display:flex; flex-direction:column; gap:0.7rem; transition: transform .3s ease, width .3s ease; box-shadow: 12px 0 36px rgba(2,6,23,0.18); }
+    .sidebar.collapsed { width:84px; }
+    .sidebar .nav-item { color:white; text-decoration:none; padding:0.8rem 0.9rem; border-radius:12px; display:flex; align-items:center; gap:0.75rem; opacity:0.9; transition: background .2s ease, transform .2s ease, opacity .2s ease; position:relative; overflow:hidden; }
+    .sidebar .nav-item:hover { background: rgba(255,255,255,0.14); transform: translateX(3px); }
+    .sidebar .nav-item.active { background: linear-gradient(90deg, rgba(56,189,248,0.24), rgba(129,140,248,0.2)); opacity:1; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+    .sidebar .nav-label { transition: opacity .2s ease; }
+    .sidebar.collapsed .nav-label { opacity:0; width:0; overflow:hidden; }
+    .sidebar .icon { width:18px; text-align:center; font-size:1rem; }
+    .main-panel { flex:1; display:flex; flex-direction:column; }
+    .topbar { background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); padding: 1rem 1.2rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(148,163,184,0.18); }
+    body.dark .topbar { background: rgba(15,23,42,0.85); }
+    .container { padding: 2rem; max-width: 1400px; margin: 0 auto; width:100%; }
+    .hero { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1.2rem; flex-wrap:wrap; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+    .card { background: var(--panel); padding: 1rem 1.2rem; border-radius: 16px; box-shadow: 0 10px 30px rgba(15,23,42,0.06); border: 1px solid rgba(148,163,184,0.16); transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
+    .card:hover { transform: translateY(-2px) scale(1.01); box-shadow: 0 16px 34px rgba(15,23,42,0.12); }
+    button, .nav-item { transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
+    button:hover, .nav-item:hover { transform: translateY(-1px); }
+    .stat { font-size: 1.7rem; font-weight: 700; margin: 0.25rem 0; }
+    .muted { color: var(--muted); font-size: 0.92rem; }
+    .chart-wrap { position: relative; height: 280px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: 0.8rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
+    th { color: var(--muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .badge { display:inline-block; padding:0.3rem 0.6rem; border-radius:999px; background:#ecfeff; color:#0369a1; font-size:0.8rem; }
+    .dark-mode-toggle { border:none; background: var(--panel); color: var(--text); padding:0.6rem 0.8rem; border-radius:999px; cursor:pointer; box-shadow: 0 8px 20px rgba(15,23,42,0.08); }
+    .mobile-toggle { display:none; }
+    @media (max-width: 900px) { .app-shell { flex-direction: column; } .sidebar { width:100%; flex-direction:row; flex-wrap:wrap; justify-content:space-around; } .sidebar.collapsed { width:100%; } .container { padding:1rem; } }
+    @media (max-width: 640px) { .mobile-toggle { display:inline-block; } .sidebar { display:none; } .sidebar.open { display:flex; } .topbar { flex-wrap:wrap; gap:0.6rem; } }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <strong style="font-size:1.1rem; margin-bottom:0.35rem;">TransitOps</strong>
+      <a class="nav-item active" href="/dashboard"><span class="icon">▣</span><span class="nav-label">Dashboard</span></a>
+      <a class="nav-item" href="/vehicles"><span class="icon">🚛</span><span class="nav-label">Vehicles</span></a>
+      <a class="nav-item" href="/drivers"><span class="icon">👤</span><span class="nav-label">Drivers</span></a>
+      <a class="nav-item" href="/trips"><span class="icon">🛣️</span><span class="nav-label">Trips</span></a>
+      <a class="nav-item" href="/maintenance"><span class="icon">🛠️</span><span class="nav-label">Maintenance</span></a>
+      <a class="nav-item" href="/expenses"><span class="icon">💸</span><span class="nav-label">Expenses</span></a>
+      <a class="nav-item" href="/reports"><span class="icon">📊</span><span class="nav-label">Reports</span></a>
+      <a class="nav-item" href="/logout"><span class="icon">↩</span><span class="nav-label">Logout</span></a>
+    </aside>
+    <div class="main-panel">
+      <div class="topbar">
+        <div><strong>TransitOps</strong> <span class="muted">Operations Command Center</span></div>
+        <div style="display:flex; gap:0.6rem; align-items:center;">
+          <button class="mobile-toggle dark-mode-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+          <button class="dark-mode-toggle" type="button" id="collapse-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">◀</button>
+          <button id="dark-mode-toggle" class="dark-mode-toggle" type="button">🌙 Dark mode</button>
+        </div>
+      </div>
+      <div class="container">
+    <div class="hero">
+      <div>
+        <h2 style="margin:0 0 0.3rem;">Operational Dashboard</h2>
+        <p class="muted">Signed in as <strong>{{ session.get('role', 'User') }}</strong></p>
+      </div>
+      <span class="badge">Live fleet intelligence</span>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="muted">Active Vehicles</div><div class="stat">{{ kpis.active_vehicles }}</div></div>
+      <div class="card"><div class="muted">Available Vehicles</div><div class="stat">{{ kpis.available_vehicles }}</div></div>
+      <div class="card"><div class="muted">Vehicles in Maintenance</div><div class="stat">{{ kpis.maintenance_vehicles }}</div></div>
+      <div class="card"><div class="muted">Active Trips</div><div class="stat">{{ kpis.active_trips }}</div></div>
+      <div class="card"><div class="muted">Pending Trips</div><div class="stat">{{ kpis.pending_trips }}</div></div>
+      <div class="card"><div class="muted">Drivers On Duty</div><div class="stat">{{ kpis.drivers_on_duty }}</div></div>
+      <div class="card"><div class="muted">Fleet Utilization</div><div class="stat">{{ kpis.fleet_utilization }}%</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Fleet Overview</h3>
+      <p>Available vehicles: {{ kpis.available_vehicles }} | Active trips: {{ kpis.active_trips }} | Utilization: {{ kpis.fleet_utilization }}%</p>
+      <div id="chart-data" style="display:none">{{ chart_data | tojson }}</div>
+      <div class="grid" style="margin-top:1rem;">
+        <div class="card"><strong>Status split</strong><div class="chart-wrap"><canvas id="statusChart"></canvas></div></div>
+        <div class="card"><strong>Regional coverage</strong><div class="chart-wrap"><canvas id="regionChart"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Recent Trips</h3>
+      <table>
+        <tr><th>ID</th><th>Route</th><th>State</th><th>Vehicle</th><th>Driver</th></tr>
+        {% for trip in trips %}
+        <tr>
+          <td>{{ trip.id }}</td>
+          <td>{{ trip.source }} → {{ trip.destination }}</td>
+          <td>{{ trip.state }}</td>
+          <td>{{ trip.vehicle_id }}</td>
+          <td>{{ trip.driver_id }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const toggle = document.getElementById('dark-mode-toggle');
+    const collapseToggle = document.getElementById('collapse-toggle');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (prefersDark) document.body.classList.add('dark');
+    toggle && toggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      toggle.textContent = document.body.classList.contains('dark') ? '☀️ Light mode' : '🌙 Dark mode';
+    });
+
+    const chartData = JSON.parse(document.getElementById('chart-data').textContent);
+
+    const statusCtx = document.getElementById('statusChart');
+    if (statusCtx) {
+      new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(chartData.statuses),
+          datasets: [{
+            data: Object.values(chartData.statuses),
+            backgroundColor: ['#3b82f6', '#f59e0b', '#10b981']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    const regionCtx = document.getElementById('regionChart');
+    if (regionCtx) {
+      new Chart(regionCtx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(chartData.regions),
+          datasets: [{
+            label: 'Vehicles by region',
+            data: Object.values(chartData.regions),
+            backgroundColor: ['#6366f1', '#ec4899', '#14b8a6']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+      });
+    }
+  </script>
+</body>
+</html>
