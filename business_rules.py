@@ -14,22 +14,45 @@ def validate_trip_assignment(vehicle, driver, cargo_weight):
         errors.append("Driver is required")
         return errors
 
-    if vehicle.status in {"In Shop", "Retired"}:
+    # helper to support both SQLAlchemy model objects and plain dicts used by tests
+    def _get(obj, key, default=None):
+        if obj is None:
+            return default
+        # try attribute access
+        try:
+            return getattr(obj, key)
+        except Exception:
+            pass
+        # try dict-like access
+        try:
+            return obj.get(key, default)
+        except Exception:
+            return default
+
+    v_status = _get(vehicle, "status")
+    v_capacity = _get(vehicle, "max_load_capacity")
+    d_status = _get(driver, "status")
+    d_license_expiry = _get(driver, "license_expiry")
+
+    if v_status in {"In Shop", "Retired"}:
         errors.append("Vehicle is unavailable for dispatch")
 
-    if vehicle.max_load_capacity < cargo_weight:
-        errors.append("Cargo weight exceeds vehicle capacity")
+    try:
+        if v_capacity is not None and float(v_capacity) < float(cargo_weight):
+            errors.append("Cargo weight exceeds vehicle capacity")
+    except Exception:
+        errors.append("Invalid vehicle capacity")
 
-    if driver.status == "Suspended":
+    if d_status == "Suspended":
         errors.append("Driver is not eligible for dispatch")
 
-    if driver.license_expiry and driver.license_expiry < date.today():
+    if d_license_expiry and isinstance(d_license_expiry, date) and d_license_expiry < date.today():
         errors.append("Driver license is expired")
 
-    if vehicle.status == "On Trip":
+    if v_status == "On Trip":
         errors.append("Vehicle is already on a trip")
 
-    if driver.status == "On Trip":
+    if d_status == "On Trip":
         errors.append("Driver is already on a trip")
 
     return errors
